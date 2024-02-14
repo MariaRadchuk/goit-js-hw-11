@@ -3,16 +3,11 @@ import 'izitoast/dist/css/iziToast.min.css';
 import SimpleLightbox from 'simplelightbox';
 import 'simplelightbox/dist/simple-lightbox.min.css';
 
-let galleryLightbox = new SimpleLightbox('.image-link', {
-  captionsData: 'alt',
-  captionDelay: 250,
-});
-
 const form = document.querySelector('.form');
 const searchInput = document.querySelector('.input-name');
 const loader = document.querySelector('.loader');
-
 const gallery = document.querySelector('.gallery');
+let galleryLightbox;
 
 form.addEventListener('submit', getPhoto);
 
@@ -22,10 +17,8 @@ function getPhoto(event) {
   const searchQuery = searchInput.value.trim();
 
   if (searchQuery === '') {
-    iziToast.show({
-      title: 'Error',
-      message: 'Please enter a search query',
-    });
+    showErrorToast('Please enter a search query');
+    return;
   }
 
   const BASE_URL = 'https://pixabay.com';
@@ -44,75 +37,75 @@ function getPhoto(event) {
   loader.classList.add('visible');
 
   fetch(url)
-    .then(res => res.json())
+    .then(response => response.json())
     .then(data => {
       renderPhotos(data.hits);
-      loader.classList.remove('visible');
     })
     .catch(error => {
-      console.log('Error fetching data:', error);
+      console.error('Error fetching data:', error);
+      showErrorToast('Error fetching data. Please try again later.');
+    })
+    .finally(() => {
       loader.classList.remove('visible');
     });
 }
 
-function makeMarkup(
-  webformatURL,
-  largeImageURL,
-  tags,
-  likes,
-  views,
-  comments,
-  downloads
-) {
-  return `<li class="photo">
-  <div class="photo-card">
-    <a class="image-link" data-lightbox="image" href="${largeImageURL}">
-    <img class="gallery-image" data-source="${largeImageURL}"  src="${webformatURL}" alt="${tags}"></img>
-    </a>
-    </div>
+function makeMarkup(photo) {
+  const {
+    webformatURL,
+    largeImageURL,
+    tags,
+    likes,
+    views,
+    comments,
+    downloads,
+  } = photo;
+
+  return `
+    <li class="photo">
+      <div class="photo-card">
+        <a class="image-link" data-lightbox="image" href="${largeImageURL}">
+          <img class="gallery-image" data-source="${largeImageURL}" src="${webformatURL}" alt="${tags}">
+        </a>
+      </div>
       <div class="description">
         <p class="description-item"> Likes ${likes}</p>
         <p class="description-item"> Views ${views}</p>
         <p class="description-item"> Comments ${comments}</p>
         <p class="description-item"> Downloads ${downloads}</p>
-    
-    </div>
-  </li>`;
+      </div>
+    </li>`;
 }
 
 function renderPhotos(photos) {
   gallery.innerHTML = '';
 
   if (photos.length === 0) {
-    iziToast.show({
-      message:
-        'Sorry, there are no images matching your search query. Please try again!',
-      backgroundColor: 'red',
-      messageColor: 'white',
-      messageSize: '25',
-    });
+    showErrorToast('Sorry, there are no images matching your search query. Please try again!');
+    return;
   }
+
   photos.forEach(photo => {
-    const {
-      webformatURL,
-      largeImageURL,
-      tags,
-      likes,
-      views,
-      comments,
-      downloads,
-    } = photo;
-    const photoElement = makeMarkup(
-      webformatURL,
-      largeImageURL,
-      tags,
-      likes,
-      views,
-      comments,
-      downloads
-    );
+    const photoElement = makeMarkup(photo);
     gallery.insertAdjacentHTML('beforeend', photoElement);
   });
 
-  galleryLightbox.refresh();
+  if (!galleryLightbox) {
+    galleryLightbox = new SimpleLightbox('.image-link', {
+      captionsData: 'alt',
+      captionDelay: 250,
+    });
+  } else {
+    galleryLightbox.refresh();
+  }
+}
+
+function showErrorToast(message) {
+  iziToast.error({
+    title: 'Error',
+    message: message,
+    backgroundColor: 'red',
+    messageColor: 'white',
+    messageSize: '25',
+  });
 }
